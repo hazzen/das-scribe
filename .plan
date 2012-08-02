@@ -1,0 +1,15 @@
+A "post" is a directory containing files.
+
+A "scribe" is a directory containing multiple "post" directories and a .scribe
+file, containing metadata about the titles/creation dates/last edit dates/etc
+of the "post" directories.
+
+A "blog" is the directory into which a "scribe" is written when das-scribe
+runs.
+
+The util should probably have a command for creating a "post" under a "scribe"
+like:
+  $ das-scribe post new
+  name of the post? <foo>
+  post initialized in ./foo/foo.MD
+  $
