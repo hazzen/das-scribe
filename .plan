@@ -13,3 +13,43 @@ like:
   name of the post? <foo>
   post initialized in ./foo/foo.MD
   $
+
+But that would be entirely too hard; would need to create files for metadata,
+etc.
+
+Instead, why not simply copy one directory structure to a target location,
+turning .md files into html and plugging that in to a template. As an
+optimization, don't copy to the destination if the destination has a newer
+timestamp than the source file.
+
+Furthermore, auto-generate a 'root' file that points to the newest .md post and
+generate next/previous links based on date as well, where data is just
+represented by the directory names in sorted order. Will need to re-generate the
+newest existing post to fill in the "next" link.
+
+For now, it may be easier to _always_ do the .md-->html conversion so we don't
+need to worry.
+
+Template file format will look like django with a few vars, like:
+
+  <html>
+    <head>
+      <script...>
+      <title>{{title}}</title>
+    </head>
+    <body>
+      <div...>
+        Last edited: {{date}}
+      </div>
+      <div...>
+        {{content}}
+      </div>
+      <div...>
+        <a href="{{prev_link}}">...</a>
+        <a href="{{next_link}}">...</a>
+      </div>
+    </body>
+  </html>
+
+Title poses an issue, as it is metadata that must be stored somewhere
+explicitly. Punt on it, for now.
