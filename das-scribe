@@ -3,6 +3,7 @@ import argparse
 import markdown
 import os
 import os.path
+import shutil
 import sys
 
 class Error(Exception):
@@ -24,6 +25,8 @@ def CreateParser():
   parser.add_argument('output', metavar='output_dir', type=str)
   parser.add_argument('--template', metavar='template', type=str,
                       default='template.html')
+  parser.add_argument('-n' '--dry_run', metavar='dry_run', type=bool,
+                      default=False, dest='dry_run')
   return parser
 
 def _PathHasDotfiles(path):
@@ -95,13 +98,23 @@ class Blog(object):
       mds = [item for item in items if item.ft == FILETYPE_MD]
       if any(mds):
         print '  PLAN: for dir %s, have %d items' % (path, len(items))
-        for md_file in mds:
-          expanded_template = self._FillTemplate(md_file.src.path)
-          if dry_run:
-            print 'Expanded template %s' % md_file.src.path
-            print '=' * 60
-            print expanded_template
-            print '=' * 60
+        if not os.path.exists(path):
+          print '    creating %s' % path
+          if not dry_run:
+            os.makedirs(path)
+        for item in items:
+          dst_contents = None
+          if item.ft == FILETYPE_MD:
+            dst_contents = self._FillTemplate(item.src.path)
+            print '    expanded template %s' % item.src.path
+          print '    handling %r --> %r' % (item.src.path, item.dst.path)
+          if not dry_run:
+            if dst_contents:
+              with open(item.dst.path, 'w') as output_file:
+                output_file.write(dst_contents)
+            else:
+              shutil.copy(item.src.path, item.dst.path)
+
 
   def _BuildPlan(self):
     plan = Plan()
@@ -119,6 +132,9 @@ class Blog(object):
       target_path = os.path.join(self._output_dir, path)
       for filename in filenames:
         print '  considering %s' % filename
+        if filename.startswith('.'):
+          print '    skipping dotfile'
+          continue
         ext = os.path.splitext(filename)[1]
         input_name = os.path.join(path, filename)
         output_name = os.path.join(target_path, filename)
@@ -145,7 +161,7 @@ def main(argv):
   args = parser.parse_args(argv[1:])
 
   blog = Blog(args)
-  blog.Generate(dry_run=True)
+  blog.Generate(dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
