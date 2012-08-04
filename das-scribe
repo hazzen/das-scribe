@@ -1,7 +1,8 @@
-import sys
 import argparse
-import markdown
 import distutils.filelist
+import markdown
+import os.path
+import sys
 
 def CreateParser():
   parser = argparse.ArgumentParser(description='Static content blogging')
@@ -13,8 +14,10 @@ def GeneratePost(post_dir, output_dir):
   post_files = distutils.filelist.FileList(post_dir)
   post_files.include_pattern('*.md')
   for post_file in post_files.files:
-    target_file = '%s.html' % post_file[:-3]
-    markdown.markdownFromFile(input=post_file, output=target_file)
+    output_name = '%s.html' % post_file[:-3]
+    target_file = os.path.join(output_dir, output_name)
+    with open(target_file, 'w') as output_file:
+      markdown.markdownFromFile(input=post_file, output=output_file)
 
 
 def main(argv):
