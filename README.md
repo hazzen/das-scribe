@@ -17,7 +17,6 @@ posts should be a file consisting of sub-directories, each containing a post in
 
 This will produce:
 
-    /var/www/blog/latest.html --> /var/www/blog/2012/05/05/cinco_de_mayo.html
     /var/www/blog/2012/03/24/late_march_stuff.html
     /var/www/blog/2012/03/24/spring.png
     /var/www/blog/2012/03/25/late_march_addendum.html

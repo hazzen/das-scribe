@@ -130,6 +130,9 @@ class Blog(object):
               output_file.write(dst_contents)
           else:
             shutil.copy(item.src.path, item.dst.path)
+    # TODO: create a link/copy of this
+    last_post = '%s/%s/%s.html' % (self._link_prefix,
+                                   all_dirs[-1][0], all_dirs[-1][1])
 
 
   def _BuildPlan(self):
