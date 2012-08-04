@@ -1,6 +1,6 @@
 import argparse
-import distutils.filelist
 import markdown
+import os
 import os.path
 import sys
 
@@ -10,14 +10,37 @@ def CreateParser():
   parser.add_argument('--output', metavar='output_dir', type=str, required=True)
   return parser
 
+def _PathHasDotfiles(path):
+  base, tail = os.path.split(path)
+  while tail:
+    if tail.startswith('.') and len(tail) > 1:
+      return True
+    base, tail = os.path.split(base)
+  return False
+
 def GeneratePost(post_dir, output_dir):
-  post_files = distutils.filelist.FileList(post_dir)
-  post_files.include_pattern('*.md')
-  for post_file in post_files.files:
-    output_name = '%s.html' % post_file[:-3]
-    target_file = os.path.join(output_dir, output_name)
-    with open(target_file, 'w') as output_file:
-      markdown.markdownFromFile(input=post_file, output=output_file)
+  for path, _, filenames in os.walk(post_dir):
+    print 'in path %s' % path
+    common_prefix = os.path.commonprefix([os.path.abspath(path),
+                                          os.path.abspath(output_dir)])
+    if common_prefix == os.path.abspath(output_dir):
+      print '  skipping self'
+      continue
+    if _PathHasDotfiles(path):
+      print '  skipping dotfile'
+      continue
+    target_path = os.path.join(output_dir, path)
+    if not os.path.exists(target_path):
+      os.makedirs(target_path)
+    for filename in filenames:
+      print '  considering %s' % filename
+      ext = os.path.splitext(filename)[1]
+      input_name = os.path.join(path, filename)
+      output_name = os.path.join(target_path, filename)
+      if ext == '.md':
+        output_name = '%s.html' % output_name[:-3]
+        with open(output_name, 'w') as output_file:
+          markdown.markdownFromFile(input=input_name, output=output_file)
 
 
 def main(argv):
