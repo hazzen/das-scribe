@@ -26,3 +26,14 @@ This will produce:
 
 It is assumed alphabetic sort order for the post directories is chronological
 order.
+
+The template file has template variables that are filled in, in a django-like
+syntax:
+
+* `{{content}}`: Replaced with the markdown-processed post.
+* `{{newer_link}}`: Replaced with the url of the next post. The format of this
+  url is `<link_prefix>/path/to/post`; the option `--link_prefix` specifies the
+  prefix to use.
+* `{{older_link}}`: Replaced with the url of the prev post. The format of this
+  url is `<link_prefix>/path/to/post`; the option `--link_prefix` specifies the
+  prefix to use.

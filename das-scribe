@@ -25,6 +25,7 @@ def CreateParser():
   parser.add_argument('output', metavar='output_dir', type=str)
   parser.add_argument('--template', metavar='template', type=str,
                       default='template.html')
+  parser.add_argument('--link_prefix', type=str, default='')
   parser.add_argument('-n' '--dry_run', metavar='dry_run', type=bool,
                       default=False, dest='dry_run')
   return parser
@@ -62,21 +63,26 @@ class Plan(object):
     self._items = []
     self._items_by_dir = {}
 
-  def AddItem(self, ft, src, dst):
+  def AddItem(self, ft, src, dst, post_dir=None):
     item = Item(ft, src, dst)
     self._items.append(item)
 
-    dst_dir = os.path.dirname(dst)
-    dir_list = self._items_by_dir.get(dst_dir, None)
+    dir_list = self._items_by_dir.get(post_dir, None)
     if not dir_list:
       dir_list = []
-      self._items_by_dir[dst_dir] = dir_list
+      self._items_by_dir[post_dir] = dir_list
     dir_list.append(item)
 
   def IterDirs(self):
     sorted_dirs = sorted(item for item in self._items_by_dir.iteritems())
     for dir_name, items in sorted_dirs:
-      yield dir_name, items
+      mds = [item for item in items if item.ft == FILETYPE_MD]
+      if any(mds):
+        if len(mds) > 1:
+          sys.exit(
+            'Found more than 1 .md file in directory %r; aborting.' % path)
+        post_name = os.path.splitext(os.path.basename(mds[0].src.path))[0]
+        yield dir_name, post_name, items
 
 
 class Blog(object):
@@ -84,6 +90,7 @@ class Blog(object):
     self._input_dir = os.path.abspath(args.input)
     self._output_dir = os.path.abspath(args.output)
     self._template_file = args.template
+    self._link_prefix = args.link_prefix
     try:
       with open(args.template, 'r') as template_file:
         self._template_contents = template_file.read()
@@ -94,26 +101,35 @@ class Blog(object):
   def Generate(self, dry_run=False):
     plan = self._BuildPlan()
     print 'From %s, output to %s' % (self._input_dir, self._output_dir)
-    for path, items in plan.IterDirs():
-      mds = [item for item in items if item.ft == FILETYPE_MD]
-      if any(mds):
-        print '  PLAN: for dir %s, have %d items' % (path, len(items))
-        if not os.path.exists(path):
-          print '    creating %s' % path
-          if not dry_run:
-            os.makedirs(path)
-        for item in items:
-          dst_contents = None
-          if item.ft == FILETYPE_MD:
-            dst_contents = self._FillTemplate(item.src.path)
-            print '    expanded template %s' % item.src.path
-          print '    handling %r --> %r' % (item.src.path, item.dst.path)
-          if not dry_run:
-            if dst_contents:
-              with open(item.dst.path, 'w') as output_file:
-                output_file.write(dst_contents)
-            else:
-              shutil.copy(item.src.path, item.dst.path)
+    all_dirs = list(plan.IterDirs())
+    for dir_index, (path, post_name, items) in enumerate(all_dirs):
+      print '  PLAN: for dir %r, post %r' % (path, post_name)
+      prev_post, next_post = None, None
+      if dir_index:
+        prev_post = '%s/%s/%s.html' % (
+          self._link_prefix,
+          all_dirs[dir_index - 1][0], all_dirs[dir_index - 1][1])
+      if dir_index + 1 < len(all_dirs):
+        next_post = '%s/%s/%s.html' % (
+          self._link_prefix,
+          all_dirs[dir_index + 1][0], all_dirs[dir_index + 1][1])
+      if not os.path.exists(os.path.join(self._output_dir, path)):
+        print '    creating %s' % path
+        if not dry_run:
+          os.makedirs(os.path.join(self._output_dir, path))
+      for item in items:
+        dst_contents = None
+        if item.ft == FILETYPE_MD:
+          dst_contents = self._FillTemplate(item.src.path, next_post=next_post,
+                                           prev_post=prev_post)
+          print '    expanded template %s' % item.src.path
+        print '    handling %r --> %r' % (item.src.path, item.dst.path)
+        if not dry_run:
+          if dst_contents:
+            with open(item.dst.path, 'w') as output_file:
+              output_file.write(dst_contents)
+          else:
+            shutil.copy(item.src.path, item.dst.path)
 
 
   def _BuildPlan(self):
@@ -136,23 +152,27 @@ class Blog(object):
           print '    skipping dotfile'
           continue
         ext = os.path.splitext(filename)[1]
-        input_name = os.path.join(path, filename)
+        input_name = os.path.join(self._input_dir, path, filename)
         output_name = os.path.join(target_path, filename)
         ft = FILETYPE_OTHER
         if ext == '.md':
           ft = FILETYPE_MD
           output_name = '%s.html' % output_name[:-3]
-        plan.AddItem(ft, input_name, output_name)
+        plan.AddItem(ft, input_name, output_name, post_dir=path)
     return plan
 
   def _ValidateTemplate(self):
     if '{{content}}' not in self._template_contents:
       raise TemplateError(self._template_file, 'missing {{content}} var')
 
-  def _FillTemplate(self, src):
+  def _FillTemplate(self, src, next_post=None, prev_post=None):
+    next_post = next_post or ''
+    prev_post = prev_post or ''
     md_io = StringIO.StringIO()
     markdown.markdownFromFile(input=src, output=md_io)
     tmpl = self._template_contents.replace('{{content}}', md_io.getvalue())
+    tmpl = tmpl.replace('{{newer_link}}', next_post)
+    tmpl = tmpl.replace('{{older_link}}', prev_post)
     return tmpl
 
 
