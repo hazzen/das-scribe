@@ -130,9 +130,27 @@ class Blog(object):
               output_file.write(dst_contents)
           else:
             shutil.copy(item.src.path, item.dst.path)
-    # TODO: create a link/copy of this
-    last_post = '%s/%s/%s.html' % (self._link_prefix,
-                                   all_dirs[-1][0], all_dirs[-1][1])
+    """
+    works, but all relative paths are broken.
+    last_post = os.path.join(
+      self._output_dir, all_dirs[-1][0], '%s.html' % all_dirs[-1][1])
+    symlink_target = os.path.join(self._output_dir, all_dirs[-1][0])
+    symlink_name = os.path.join(self._output_dir, 'latest.html')
+    shutil.copy(last_post, symlink_name)
+    """
+    """
+    works, but means you have to know the post name. no index.html created.
+    symlink_name = os.path.join(self._output_dir, 'latest')
+    symlink_target = os.path.join(self._output_dir, all_dirs[-1][0])
+    print '  symlinking %s --> %s' % (symlink_name, symlink_target)
+    if not dry_run:
+      try:
+        os.remove('.tmplnk')
+      except StandardError:
+        pass
+      os.symlink(symlink_target, '.tmplnk')
+      os.rename('.tmplnk', symlink_name)
+    """
 
 
   def _BuildPlan(self):
