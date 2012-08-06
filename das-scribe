@@ -107,7 +107,6 @@ class Blog(object):
       index_md_io.write('* [%s](%s)\n' % (title, post_link))
     index_html = markdown.markdown(index_md_io.getvalue())
     _, index_contents = self._FillTemplate(index_html)
-    print index_contents
     index_path = os.path.join(self._output_dir, 'index.html')
     print 'writing index to %s' % index_path
     with open(index_path, 'w') as output_file:
