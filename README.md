@@ -17,6 +17,7 @@ posts should be a file consisting of sub-directories, each containing a post in
 
 This will produce:
 
+    /var/www/blog/index.html
     /var/www/blog/2012/03/24/late_march_stuff.html
     /var/www/blog/2012/03/24/spring.png
     /var/www/blog/2012/03/25/late_march_addendum.html
@@ -30,9 +31,15 @@ The template file has template variables that are filled in, in a django-like
 syntax:
 
 * `{{content}}`: Replaced with the markdown-processed post.
+* `{{title}}`: Replaced with the plain-text contents of the text element in the
+  post.
 * `{{newer_link}}`: Replaced with the url of the next post. The format of this
   url is `<link_prefix>/path/to/post`; the option `--link_prefix` specifies the
   prefix to use.
 * `{{older_link}}`: Replaced with the url of the prev post. The format of this
   url is `<link_prefix>/path/to/post`; the option `--link_prefix` specifies the
   prefix to use.
+
+Additionally, the `index.html` file generated in the root directory will have
+its `{{content}}` replaced by a list of the recent posts, in a ul, by their
+title.

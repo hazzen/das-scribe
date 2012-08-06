@@ -5,6 +5,7 @@ import os
 import os.path
 import shutil
 import sys
+import HTMLParser
 
 class Error(Exception):
   pass
@@ -98,10 +99,25 @@ class Blog(object):
       sys.exit('Error reading template file %r\n%s' % (args.template, e))
     self._ValidateTemplate()
 
+  def _WriteIndexFile(self, items):
+    index_md_io = StringIO.StringIO()
+    index_md_io.write('Recent posts\n======\n')
+    for title, (path, post_name, _) in items:
+      post_link = '%s/%s/%s.html' % (self._link_prefix, path, post_name)
+      index_md_io.write('* [%s](%s)\n' % (title, post_link))
+    index_html = markdown.markdown(index_md_io.getvalue())
+    _, index_contents = self._FillTemplate(index_html)
+    print index_contents
+    index_path = os.path.join(self._output_dir, 'index.html')
+    print 'writing index to %s' % index_path
+    with open(index_path, 'w') as output_file:
+      output_file.write(index_contents)
+
   def Generate(self, dry_run=False):
     plan = self._BuildPlan()
     print 'From %s, output to %s' % (self._input_dir, self._output_dir)
     all_dirs = list(plan.IterDirs())
+    titles = []
     for dir_index, (path, post_name, items) in enumerate(all_dirs):
       print '  PLAN: for dir %r, post %r' % (path, post_name)
       prev_post, next_post = None, None
@@ -120,9 +136,12 @@ class Blog(object):
       for item in items:
         dst_contents = None
         if item.ft == FILETYPE_MD:
-          dst_contents = self._FillTemplate(item.src.path, next_post=next_post,
-                                           prev_post=prev_post)
-          print '    expanded template %s' % item.src.path
+          md_io = StringIO.StringIO()
+          markdown.markdownFromFile(input=item.src.path, output=md_io)
+          title, dst_contents = self._FillTemplate(
+            md_io.getvalue(), next_post=next_post, prev_post=prev_post)
+          titles.append(title)
+          print '    expanded template %s: %r' % (item.src.path, title)
         print '    handling %r --> %r' % (item.src.path, item.dst.path)
         if not dry_run:
           if dst_contents:
@@ -130,27 +149,9 @@ class Blog(object):
               output_file.write(dst_contents)
           else:
             shutil.copy(item.src.path, item.dst.path)
-    """
-    works, but all relative paths are broken.
-    last_post = os.path.join(
-      self._output_dir, all_dirs[-1][0], '%s.html' % all_dirs[-1][1])
-    symlink_target = os.path.join(self._output_dir, all_dirs[-1][0])
-    symlink_name = os.path.join(self._output_dir, 'latest.html')
-    shutil.copy(last_post, symlink_name)
-    """
-    """
-    works, but means you have to know the post name. no index.html created.
-    symlink_name = os.path.join(self._output_dir, 'latest')
-    symlink_target = os.path.join(self._output_dir, all_dirs[-1][0])
-    print '  symlinking %s --> %s' % (symlink_name, symlink_target)
+
     if not dry_run:
-      try:
-        os.remove('.tmplnk')
-      except StandardError:
-        pass
-      os.symlink(symlink_target, '.tmplnk')
-      os.rename('.tmplnk', symlink_name)
-    """
+      self._WriteIndexFile(reversed(zip(titles[-10:], all_dirs[-10:])))
 
 
   def _BuildPlan(self):
@@ -186,15 +187,50 @@ class Blog(object):
     if '{{content}}' not in self._template_contents:
       raise TemplateError(self._template_file, 'missing {{content}} var')
 
-  def _FillTemplate(self, src, next_post=None, prev_post=None):
+  def _ExtractTitle(self, md_str):
+    class TitleExtractor(HTMLParser.HTMLParser):
+      def __init__(self):
+        HTMLParser.HTMLParser.__init__(self)
+        self._reading = True
+        self._text = []
+        self._tag_stack = []
+
+      def title(self):
+        return ''.join(self._text)
+
+      def handle_starttag(self, tag, attrs):
+        if self._reading:
+          self._tag_stack.append(tag)
+
+      def handle_endtag(self, tag):
+        if self._reading:
+          self._tag_stack.pop()
+          if not self._tag_stack:
+            self._reading = False
+
+      def handle_data(self, data):
+        if self._reading:
+          self._text.append(data)
+
+      def handle_entityref(self, name):
+        if self._reading:
+          self._text.append('&%s;' % name)
+
+    parser = TitleExtractor()
+    parser.feed(md_str)
+    return parser.title()
+
+  def _FillTemplate(self, contents, next_post=None, prev_post=None):
     next_post = next_post or ''
     prev_post = prev_post or ''
-    md_io = StringIO.StringIO()
-    markdown.markdownFromFile(input=src, output=md_io)
-    tmpl = self._template_contents.replace('{{content}}', md_io.getvalue())
+
+    title = self._ExtractTitle(contents)
+
+    tmpl = self._template_contents.replace('{{content}}', contents)
+    tmpl = tmpl.replace('{{title}}', title)
     tmpl = tmpl.replace('{{newer_link}}', next_post)
     tmpl = tmpl.replace('{{older_link}}', prev_post)
-    return tmpl
+    return title, tmpl
 
 
 def main(argv):
