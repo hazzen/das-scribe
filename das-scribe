@@ -65,7 +65,8 @@ class Item(object):
 
   @property
   def ctime(self):
-    return self.dst.ctime or time.time()
+    # This logic should definitely be fixed.
+    return self.src.ctime or time.time()
 
 
 class Plan(object):
