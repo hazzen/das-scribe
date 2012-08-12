@@ -184,7 +184,7 @@ class Blog(object):
     posts = []
     for dir_index, (path, post_name, items) in enumerate(all_dirs):
       print '  PLAN: for dir %r, post %r' % (path, post_name)
-      prev_post, next_post = None, None
+      prev_post, next_post = ('%s/index.html' % self._link_prefix,) * 2
       if dir_index:
         prev_post = '%s/%s/%s.html' % (
           self._link_prefix,
