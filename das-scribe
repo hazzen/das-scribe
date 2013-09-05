@@ -171,7 +171,8 @@ class Blog(object):
       post_link = '%s/%s/%s.html' % (self._link_prefix, path, post_name)
       index_md_io.write('* %s - [%s](%s)\n' % (
         time.strftime('%d %b %Y', time.gmtime(item.ctime)), title, post_link))
-    index_html = markdown.markdown(index_md_io.getvalue())
+    index_html = markdown.markdown(index_md_io.getvalue(),
+                                   extensions=['footnotes'])
     _, index_contents = self._index_template.Fill(index_html)
     index_path = os.path.join(self._output_dir, 'index.html')
     print 'writing index to %s' % index_path
